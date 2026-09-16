@@ -2,32 +2,75 @@
 
 Anti-waste **multi-agent orchestrator** toolkit: supervisor-as-tools, run-level budgets, tight briefs, and runtime guards against token burn.
 
-> Status: scaffold — implementation in progress via Cursor cloud agent.
+Core library performs **no LLM network calls** — you wire workers; this package decides when to hire, what brief to pass, and when to halt.
 
-## Goals
-- Prefer **one strong agent**; hire specialists only when work is separable and long-running
-- Cap workers (soft max 2, hard max 4 unless user multitasks)
-- Pass **focused briefs**, not full chat history
-- Intervene on **errors / loops / oversized observations** only
-- Enforce optional **run-level token/time budgets**
+## Install
 
-## Research anchors
-- [SupervisorAgent](https://github.com/LINs-lab/SupervisorAgent) — runtime supervision, ~30% token savings (ICLR 2026 paper)
-- [TokenOps](https://github.com/theagentplane/tokenops) — run-aware token governance
-- [LangChain multi-agent / supervisor-as-tools](https://docs.langchain.com/oss/python/langchain/multi-agent) — workers as tools, not legacy handoff graphs
-- Hyperloom / token-budget orchestrator patterns — shared state & per-agent caps
-
-## Planned layout
+```bash
+npm install elite-multi-agent-ops
 ```
-src/
-  orchestrator/   # Coordinator, hire/resume, soft caps
-  brief/          # Brief template + validation
-  budget/         # Run ledger + halt/mutate hooks
-  supervise/      # Loop/error/oversized-observation filters
-docs/
-  ARCHITECTURE.md
-  RESEARCH.md
+
+## Usage
+
+```ts
+import {
+  Orchestrator,
+  buildBrief,
+  detectLoop,
+  decideIntervention,
+} from "elite-multi-agent-ops";
+
+const orch = new Orchestrator({
+  runId: "run-1",
+  policy: { softMaxWorkers: 2, hardMaxWorkers: 4, maxTokens: 50_000 },
+});
+
+const decision = orch.shouldHire({
+  separable: true,
+  longRunning: true,
+  parallelismBenefit: true,
+});
+
+if (decision.hire) {
+  const brief = buildBrief({
+    goal: "Summarize repo architecture",
+    success: "One-page outline with module map",
+    context: ["src/", "docs/ARCHITECTURE.md"],
+    role: "researcher",
+  });
+
+  const result = orch.dispatch(brief); // local stub; no network
+  console.log(result.stubOutput);
+
+  const summary = orch.consolidate([
+    result.stubOutput ?? "",
+    "Extra note from another worker",
+  ]);
+  console.log(summary);
+}
+
+// Runtime supervision (caller feeds observation text / signatures)
+const action = decideIntervention({
+  error: false,
+  loop: detectLoop(["a", "a", "a"]),
+  oversized: false,
+});
+// action === "halt"
 ```
+
+## Scripts
+
+```bash
+npm install
+npm test
+npm run build
+```
+
+## Docs
+
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Research anchors](./docs/RESEARCH.md)
 
 ## License
+
 MIT
